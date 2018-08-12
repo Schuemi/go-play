@@ -185,15 +185,11 @@ void videoTask(void *arg)
 
 
     // Draw hourglass
-    send_reset_drawing((320 / 2 - 48 / 2), 96, 48, 48);
+    odroid_display_lock_gb_display();
 
-    // split in half to fit transaction size limit
-    uint16_t* icon = image_hourglass_empty_black_48dp.pixel_data;
+    odroid_display_show_hourglass();
 
-    send_continue_line(icon, 48, 24);
-    send_continue_line(icon + 24 * 48, 48, 24);
-
-    send_continue_wait();
+    odroid_display_unlock_gb_display();
 
 
     videoTaskIsRunning = false;
@@ -420,7 +416,7 @@ static void DoMenuHome()
 
 void app_main(void)
 {
-    printf("gnuboy start.\n");
+    printf("gnuboy (%s-%s).\n", COMPILEDATE, GITREV);
 
     nvs_flash_init();
 
@@ -477,6 +473,12 @@ void app_main(void)
             break;
     }
 
+    if (odroid_settings_StartAction_get() == ODROID_START_ACTION_RESTART)
+    {
+        forceConsoleReset = true;
+        odroid_settings_StartAction_set(ODROID_START_ACTION_NORMAL);
+    }
+
 
     // Display
     ili9341_prepare();
@@ -490,7 +492,7 @@ void app_main(void)
     ili9341_write_frame_gb(NULL, true);
 
     // Audio hardware
-    odroid_audio_init(AUDIO_SAMPLE_RATE);
+    odroid_audio_init(odroid_settings_AudioSink_get(), AUDIO_SAMPLE_RATE);
 
     // Allocate display buffers
     displayBuffer[0] = heap_caps_malloc(160 * 144 * 2, MALLOC_CAP_8BIT | MALLOC_CAP_DMA);
@@ -592,6 +594,8 @@ void app_main(void)
     }
 
 
+    scaling_enabled = odroid_settings_ScaleDisabled_get(ODROID_SCALE_DISABLE_GB) ? false : true;
+
     odroid_input_gamepad_read(&lastJoysticState);
 
     while (true)
@@ -647,6 +651,7 @@ void app_main(void)
         if (joystick.values[ODROID_INPUT_START] && !lastJoysticState.values[ODROID_INPUT_RIGHT] && joystick.values[ODROID_INPUT_RIGHT])
         {
             scaling_enabled = !scaling_enabled;
+            odroid_settings_ScaleDisabled_set(ODROID_SCALE_DISABLE_GB, scaling_enabled ? 0 : 1);
         }
 
 

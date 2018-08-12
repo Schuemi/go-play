@@ -123,7 +123,7 @@ static int osd_init_sound(void)
 
 	audio_frame=malloc(4*DEFAULT_FRAGSIZE);
 
-    odroid_audio_init(DEFAULT_SAMPLERATE);
+    odroid_audio_init(odroid_settings_AudioSink_get(), DEFAULT_SAMPLERATE);
 
 #endif
 
@@ -279,18 +279,7 @@ static void videoTask(void *arg) {
 
     odroid_display_lock_nes_display();
 
-    send_continue_wait();
-
-    // Draw hourglass
-    send_reset_drawing((320 / 2 - 48 / 2), 96, 48, 48);
-
-    // split in half to fit transaction size limit
-    uint16_t* icon = image_hourglass_empty_black_48dp.pixel_data;
-
-    send_continue_line(icon, 48, 24);
-    send_continue_line(icon + 24 * 48, 48, 24);
-
-    send_continue_wait();
+    odroid_display_show_hourglass();
 
     odroid_display_unlock_nes_display();
     //odroid_display_drain_spi();
@@ -466,6 +455,7 @@ static int ConvertJoystickInput()
     if (state.values[ODROID_INPUT_START] && !previousJoystickState.values[ODROID_INPUT_RIGHT] && state.values[ODROID_INPUT_RIGHT])
     {
         scaling_enabled = !scaling_enabled;
+        odroid_settings_ScaleDisabled_set(ODROID_SCALE_DISABLE_NES, scaling_enabled ? 0 : 1);
     }
 
 
@@ -591,8 +581,16 @@ int osd_init()
             break;
     }
 
+    if (odroid_settings_StartAction_get() == ODROID_START_ACTION_RESTART)
+    {
+        forceConsoleReset = true;
+        odroid_settings_StartAction_set(ODROID_START_ACTION_NORMAL);
+    }
+
 
     Volume = odroid_settings_Volume_get();
+
+    scaling_enabled = odroid_settings_ScaleDisabled_get(ODROID_SCALE_DISABLE_NES) ? false : true;
 
     previousJoystickState = odroid_input_read_raw();
     ignoreMenuButton = previousJoystickState.values[ODROID_INPUT_MENU];
